@@ -1,166 +1,155 @@
-# 🚀 AI Job Application Co-Pilot
+# CoPilot — AI Job Application Assistant
 
-A real-world LangGraph project that helps you analyze job descriptions, identify skill gaps, generate cover letters, draft application emails, and prepare for interviews — all automatically.
+> Analyze any job description against your resume. Get a skill gap analysis, tailored cover letter, application email, and interview prep — in seconds.
+
+**Live Demo →** [copilot.deoltechnify.com](https://copilot.deoltechnify.com)
+
+---
+
+## What It Does
+
+Upload your resume (PDF, DOCX, or TXT), paste a job description, and CoPilot runs a 5-step AI pipeline powered by LangGraph:
+
+| Step | What Happens |
+|------|-------------|
+| Parse JD | Extracts job title, company, required skills, responsibilities |
+| Skill Gap | Compares JD requirements against your resume using RAG |
+| Cover Letter | Generates a tailored cover letter with your real name and contact info |
+| Email Draft | Writes a concise professional application email |
+| Interview Prep | Generates likely questions and preparation tips |
+
+---
 
 ## Tech Stack
 
-| Layer | Tech |
-|-------|------|
-| Orchestration | **LangGraph** (stateful multi-node graph) |
-| LLM | **OpenAI GPT-4o-mini** via LangChain |
-| Vector DB | **ChromaDB** (resume embeddings) |
-| Backend | **FastAPI** |
-| Frontend | **Streamlit** |
+| Layer | Technology |
+|-------|-----------|
+| AI Orchestration | LangGraph (stateful multi-node graph) |
+| LLM | GPT-4o-mini via LangChain |
+| Vector Database | ChromaDB (resume embeddings) |
+| Backend | FastAPI |
+| Frontend | Vanilla HTML/CSS/JS |
 
 ---
 
 ## Project Structure
 
 ```
-job_copilot/
-├── main.py                    # FastAPI entry point
-├── streamlit_app.py           # Streamlit UI
+Job_copilot/
+├── main.py                  # FastAPI entry point
 ├── requirements.txt
 ├── .env.example
-├── data/
-│   └── chroma_db/             # Auto-created: resume vector store
+├── frontend/
+│   └── index.html           # Full frontend (single file)
 └── app/
     ├── core/
-    │   ├── config.py          # AppState (Pydantic model) + env config
-    │   └── resume_store.py    # ChromaDB ingest + retrieval
+    │   ├── config.py        # AppState + env config
+    │   ├── resume_store.py  # ChromaDB ingest & retrieval
+    │   └── file_parser.py   # PDF/DOCX/TXT text extraction
     ├── agents/
-    │   ├── nodes.py           # 5 LangGraph node functions
-    │   └── graph.py           # Graph assembly + runner
+    │   ├── nodes.py         # 5 LangGraph node functions
+    │   └── graph.py         # Graph assembly + pipeline runner
     └── api/
-        └── routes.py          # FastAPI endpoints
+        └── routes.py        # FastAPI endpoints
 ```
 
 ---
 
-## LangGraph Workflow
+## LangGraph Pipeline
 
 ```
-[parse_jd_node]          ← Extracts job title, skills, responsibilities
-      ↓
-[skill_gap_node]         ← RAG: compares JD skills vs your resume
-      ↓
-[cover_letter_node]      ← Generates tailored cover letter
-      ↓
-[email_node]             ← Drafts application email
-      ↓
-[interview_prep_node]    ← Generates questions + prep tips
-      ↓
-     END
+[parse_jd]      → Structured extraction from raw job description
+     ↓
+[skill_gap]     → RAG: match resume chunks against required skills
+     ↓
+[cover_letter]  → Personalized letter using real contact info from resume
+     ↓
+[email]         → Short professional application email
+     ↓
+[interview_prep]→ Likely questions + role-specific prep tips
+     ↓
+    END
 ```
 
-Each node:
-- Takes the full `GraphState` dict
-- Does ONE focused job (single responsibility)
-- Returns updated state dict
-- The graph handles routing between nodes
+Each node is a plain Python function — takes state dict, does one job, returns updated state. LangGraph handles the routing.
 
 ---
 
-## Setup
+## Local Setup
 
 ### 1. Clone & Install
 
 ```bash
-cd job_copilot
+git clone https://github.com/sarbdeol/Job_copilot.git
+cd Job_copilot
+
 python -m venv venv
-source venv/bin/activate      # Windows: venv\Scripts\activate
+source venv/bin/activate   # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-### 2. Configure Environment
+### 2. Configure
 
 ```bash
 cp .env.example .env
-# Edit .env and add your OPENAI_API_KEY
+# Add your OPENAI_API_KEY to .env
 ```
 
-### 3. Run the API
+### 3. Run
 
 ```bash
+# Terminal 1 — start the API
 uvicorn main:app --reload
-# API running at http://localhost:8000
-# Docs at http://localhost:8000/docs
+
+# Open frontend/index.html in your browser
+# Or serve it: python -m http.server 3000 --directory frontend
 ```
 
-### 4. Run the UI (in a new terminal)
+API docs available at `http://localhost:8000/docs`
 
-```bash
-streamlit run streamlit_app.py
-# UI at http://localhost:8501
+---
+
+## API Reference
+
+```
+GET  /health          Health check
+POST /upload-resume   Upload resume file (PDF/DOCX/TXT) → embed to ChromaDB
+POST /analyze         Run full LangGraph pipeline
 ```
 
 ---
 
-## Usage
+## Self-Hosting on EC2 + Nginx
 
-1. **Paste your resume** in the sidebar → click "Save Resume to Memory"
-   - This embeds your resume into ChromaDB (only needed once)
+See the [deployment guide](docs/DEPLOYMENT.md) for full EC2 + Nginx + SSL setup.
 
-2. **Paste a job description** in the main area
-
-3. **Click "Analyze & Generate"**
-
-4. View results across 4 tabs:
-   - 🎯 Skills Analysis (match score, gaps)
-   - ✉️ Cover Letter (download ready)
-   - 📧 Application Email
-   - 🎤 Interview Questions + Tips
+Quick overview:
+- EC2 Ubuntu 22.04, t3.small minimum
+- Nginx serves `frontend/` as static files, proxies `/api/` to FastAPI
+- Supervisor keeps FastAPI running 24/7
+- Free SSL via Certbot (Let's Encrypt)
 
 ---
 
-## API Endpoints
+## Contributing
 
-```
-GET  /health           → Health check
-POST /ingest-resume    → Store resume in ChromaDB
-POST /analyze          → Run full LangGraph pipeline
-```
+Contributions welcome. Some ideas:
 
-### Test with curl
+- **Human-in-the-loop** — let user edit cover letter mid-pipeline using LangGraph `interrupt_before`
+- **Parallel nodes** — run cover letter and email generation in parallel with `Send()`
+- **Company research node** — add a web search agent to pull company context
+- **Persistence** — use LangGraph `SqliteSaver` to resume interrupted pipelines
+- **Conditional routing** — if match score < 40, route to "should you apply?" node
+- **Multi-resume support** — namespace ChromaDB collections per user
 
-```bash
-# Health check
-curl http://localhost:8000/health
-
-# Ingest resume
-curl -X POST http://localhost:8000/ingest-resume \
-  -H "Content-Type: application/json" \
-  -d '{"resume_text": "Your full resume here..."}'
-
-# Analyze a job
-curl -X POST http://localhost:8000/analyze \
-  -H "Content-Type: application/json" \
-  -d '{"job_description": "Job description here..."}'
-```
+Open an issue first for large changes. PRs welcome for bug fixes anytime.
 
 ---
 
-## Key Learning Concepts in This Project
+## License
 
-| Concept | Where in Code |
-|---------|---------------|
-| LangGraph StateGraph | `app/agents/graph.py` |
-| LangGraph TypedDict State | `app/agents/graph.py` → `GraphState` |
-| LangGraph Nodes | `app/agents/nodes.py` → each `*_node()` |
-| LangChain Chains | `nodes.py` → `prompt | llm` pattern |
-| RAG (Retrieval-Augmented Generation) | `resume_store.py` + `skill_gap_node` |
-| ChromaDB embeddings | `app/core/resume_store.py` |
-| Structured LLM output (JSON) | `parse_jd_node`, `skill_gap_node`, `interview_prep_node` |
-| FastAPI + Pydantic | `app/api/routes.py` |
+MIT — free to use, modify, and distribute.
 
 ---
 
-## Extend This Project
-
-Ideas to go deeper with LangGraph:
-
-- **Add human-in-the-loop**: Use `interrupt_before` to let user edit the cover letter mid-graph
-- **Conditional routing**: If `match_score < 40`, route to a "should you apply?" warning node
-- **Parallel nodes**: Run `cover_letter_node` and `email_node` in parallel with `Send()`
-- **Persistence**: Use LangGraph's `SqliteSaver` to save state between sessions
-- **Multi-agent**: Add a "Research Company" sub-agent that searches the web about the company
+Built by [Sarab](https://github.com/sarbdeol) · [LinkedIn](https://linkedin.com/in/your-profile)
